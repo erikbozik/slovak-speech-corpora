@@ -1,0 +1,8 @@
+https://huggingface.co/datasets/facebook/voxpopuli/resolve/main/data/sk/asr_dev.tsv?download=true
+https://huggingface.co/datasets/facebook/voxpopuli/resolve/main/data/sk/asr_test.tsv?download=true
+https://huggingface.co/datasets/facebook/voxpopuli/resolve/main/data/sk/asr_train.tsv?download=true
+https://huggingface.co/datasets/facebook/voxpopuli/resolve/main/data/sk/dev/dev_part_0.tar.gz?download=true
+https://huggingface.co/datasets/facebook/voxpopuli/resolve/main/data/sk/test/test_part_0.tar.gz?download=true
+https://huggingface.co/datasets/facebook/voxpopuli/resolve/main/data/sk/train/train_part_0.tar.gz?download=true
+https://huggingface.co/datasets/facebook/voxpopuli/resolve/main/data/sk/train/train_part_1.tar.gz?download=true
+https://huggingface.co/datasets/facebook/voxpopuli/resolve/main/data/sk/train/train_part_2.tar.gz?download=true

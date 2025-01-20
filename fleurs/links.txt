@@ -1,0 +1,6 @@
+https://huggingface.co/datasets/google/fleurs/resolve/main/data/sk_sk/audio/dev.tar.gz?download=true
+https://huggingface.co/datasets/google/fleurs/resolve/main/data/sk_sk/audio/test.tar.gz?download=true
+https://huggingface.co/datasets/google/fleurs/resolve/main/data/sk_sk/audio/train.tar.gz?download=true
+https://huggingface.co/datasets/google/fleurs/resolve/main/data/sk_sk/dev.tsv?download=true
+https://huggingface.co/datasets/google/fleurs/resolve/main/data/sk_sk/test.tsv?download=true
+https://huggingface.co/datasets/google/fleurs/resolve/main/data/sk_sk/train.tsv?download=true
