@@ -1,5 +1,11 @@
-from pydantic import Field
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
+
+
+class DataMetaData(BaseModel):
+    tsv_path: str
+    audio_dir_path: str
+    source_part: str
 
 
 class DatabaseSettings(BaseSettings):
