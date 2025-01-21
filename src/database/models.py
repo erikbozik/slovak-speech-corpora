@@ -9,8 +9,10 @@ class Recording(Base):
 
     id = Column(Integer, primary_key=True)
     filename = Column(String, nullable=False, unique=True)
-    transcript = Column(String, nullable=False)
+    transcript = Column(String)
     audio = Column(LargeBinary, nullable=False)
+    source = Column(String, nullable=False)
+    source_part = Column(String)
     duration_ms = Column(Float, nullable=False)
     audio_size = Column(Float, nullable=False)
     speaker_id = Column(Integer)

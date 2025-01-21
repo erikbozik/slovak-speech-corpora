@@ -19,7 +19,7 @@ def reset_file_position(method):
 
 class AnalyzeAudio(BaseModel):
     duration: float
-    samplerate: int
+    sampling_rate: int
 
 
 class AudioAnalyzer:
@@ -33,6 +33,6 @@ class AudioAnalyzer:
         with SoundFile(self.file) as audio_file:
             analyzed = AnalyzeAudio(
                 duration=(len(audio_file) / audio_file.samplerate) * 1000,
-                samplerate=audio_file.samplerate,
+                sampling_rate=audio_file.samplerate,
             )
         return analyzed
