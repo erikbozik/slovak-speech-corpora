@@ -25,6 +25,7 @@ def extract_data():
         a = CommonVoice(i)
         logger.info(f"Processing {i.source_part}")
         insert(a)
+        exit()
 
     logger.info("Processing Voxpopuli")
     for i in VOXPOPULI_METADATA:

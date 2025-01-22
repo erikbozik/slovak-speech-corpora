@@ -1,4 +1,5 @@
-from sqlalchemy import JSON, Column, Float, Integer, LargeBinary, String
+from sqlalchemy import Column, Float, Integer, LargeBinary, String
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
@@ -18,4 +19,4 @@ class Recording(Base):
     speaker_id = Column(String)
     speaker_gender = Column(String)
     sampling_rate = Column(Integer)
-    other_data = Column(JSON)
+    other_data = Column(JSONB)

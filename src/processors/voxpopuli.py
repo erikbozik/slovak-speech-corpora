@@ -5,31 +5,27 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from pandas import DataFrame, Series
-from tqdm import tqdm
 
 from src.database import Recording
 from src.processors import AudioAnalyzer
 
 from ..schemas import DataMetaData
+from .parent import Extractor
 
 
-class VoxPopuli:
+class VoxPopuli(Extractor):
     data: DataFrame
     source_part: str
     audio_dir_path: Path
     source: str
 
-    def __init__(self, data: DataMetaData, source: str = "voxpopuli") -> None:
-        self.source = source
-        self.source_part = data.source_part
-        self.audio_dir_path = Path(data.audio_dir_path)
-        self.data = pd.read_csv(data.tsv_path, delimiter="\t")
+    def __init__(
+        self, data: DataMetaData, source: str = "voxpopuli", *args, **kwargs
+    ) -> None:
+        super().__init__(data, source, *args, **kwargs)
+        self.data = pd.read_csv(data.data_path, delimiter="\t")
 
-    def extract(self):
-        for _, data in tqdm(self.data.iterrows(), total=len(self.data)):
-            yield self._construct_recording(data=data)
-
-    def _construct_recording(self, data: Series) -> Recording:
+    def construct_recording(self, data: Series) -> Recording:
         data = data.replace(np.nan, None)
         filename = data["id"]
         _path = self.get_path_to_audio(filename=filename)
@@ -73,8 +69,4 @@ class VoxPopuli:
         if ".wav" not in filename:
             filename += ".wav"
 
-        path = self.audio_dir_path / filename
-
-        if not path.exists() or not path.is_file():
-            raise FileNotFoundError(f"{path} does not exist.")
-        return path
+        return super().get_path_to_audio(filename)

@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings
 
 
 class DataMetaData(BaseModel):
-    tsv_path: str
+    data_path: str
     audio_dir_path: str
     source_part: str
 
