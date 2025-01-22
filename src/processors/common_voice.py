@@ -1,12 +1,11 @@
 import json
 import os
-from io import BytesIO
+import subprocess
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from pandas import DataFrame, Series
-from pydub import AudioSegment
 from tqdm import tqdm
 
 from src.database import Recording
@@ -81,10 +80,10 @@ class CommonVoice:
 
     @staticmethod
     def convert_mp3_to_wav(mp3_data: bytes) -> bytes:
-        audio = AudioSegment.from_file(BytesIO(mp3_data), format="mp3")
-
-        wav_buffer = BytesIO()
-
-        audio.export(wav_buffer, format="wav")
-
-        return wav_buffer.getvalue()
+        process = subprocess.run(
+            ["ffmpeg", "-i", "pipe:0", "-f", "wav", "pipe:1"],
+            input=mp3_data,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        )
+        return process.stdout
