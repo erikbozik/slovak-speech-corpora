@@ -1,4 +1,3 @@
-import json
 import os
 from pathlib import Path
 
@@ -45,11 +44,7 @@ class VoxPopuli(Extractor):
             if col not in {"id", "raw_text", "speaker_id", "gender"}
         ]
 
-        other_data = json.dumps(
-            {col_name: data[col_name] for col_name in _other_cols},
-            indent=4,
-            ensure_ascii=False,
-        )
+        other_data = {col_name: data[col_name] for col_name in _other_cols}
 
         return Recording(
             filename=filename,

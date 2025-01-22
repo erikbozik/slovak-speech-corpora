@@ -31,8 +31,7 @@ class CommonVoice(Extractor):
         filename = data["path"]
         _path = self.get_path_to_audio(filename)
         transcript = data["sentence"]
-        # audio = self.convert_mp3_to_wav(open(_path, "rb").read())
-        audio = open(_path, "rb").read()
+        audio = self.convert_mp3_to_wav(open(_path, "rb").read())
         audio_size = os.path.getsize(_path) / 1024**2
         speaker_id = data["client_id"]
         gender = data["gender"]
