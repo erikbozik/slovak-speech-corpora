@@ -34,7 +34,7 @@ class VoxPopuli:
         filename = data["id"]
         _path = self.get_path_to_audio(filename=filename)
         transcript = data["raw_text"]
-        audio = open(_path, "rb")
+        audio = open(_path, "rb").read()
         audio_size = os.path.getsize(_path) / 1024**2
         speaker_id = int(data["speaker_id"]) if data["speaker_id"] else None
         gender = data["gender"]
@@ -58,7 +58,7 @@ class VoxPopuli:
         return Recording(
             filename=filename,
             transcript=transcript,
-            audio=audio.read(),
+            audio=audio,
             source=self.source,
             source_part=self.source_part,
             duration_ms=duration_ms,
