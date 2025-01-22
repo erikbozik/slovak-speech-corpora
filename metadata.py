@@ -29,19 +29,19 @@ COMMON_VOICE_METADATA = [
         audio_dir_path="common_voice/clips",
         source_part="validated",
     ),
-    DataMetaData(
-        data_path="common_voice/dev.tsv",
-        audio_dir_path="common_voice/clips",
-        source_part="dev",
-    ),
-    DataMetaData(
-        data_path="common_voice/test.tsv",
-        audio_dir_path="common_voice/clips",
-        source_part="test",
-    ),
-    DataMetaData(
-        data_path="common_voice/train.tsv",
-        audio_dir_path="common_voice/clips",
-        source_part="train",
-    ),
+    # DataMetaData(
+    #     data_path="common_voice/dev.tsv",
+    #     audio_dir_path="common_voice/clips",
+    #     source_part="dev",
+    # ),
+    # DataMetaData(
+    #     data_path="common_voice/test.tsv",
+    #     audio_dir_path="common_voice/clips",
+    #     source_part="test",
+    # ),
+    # DataMetaData(
+    #     data_path="common_voice/train.tsv",
+    #     audio_dir_path="common_voice/clips",
+    #     source_part="train",
+    # ),
 ]
