@@ -1,6 +1,6 @@
 numpy==2.2.2
 pandas==2.2.3
-pydantic==2.10.5
+pydantic==2.10.6
 pydantic_settings==2.7.1
 soundfile==0.13.0
 SQLAlchemy==2.0.37

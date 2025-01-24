@@ -52,4 +52,14 @@ FLEURS_METADATA = [
         audio_dir_path="data/fleurs/dev",
         source_part="dev",
     ),
+    DataMetaData(
+        data_path="data/fleurs/train.tsv",
+        audio_dir_path="data/fleurs/train",
+        source_part="train",
+    ),
+    DataMetaData(
+        data_path="data/fleurs/test.tsv",
+        audio_dir_path="data/fleurs/test",
+        source_part="test",
+    ),
 ]
