@@ -3,7 +3,7 @@ from sqlalchemy.orm import sessionmaker
 
 from metadata import COMMON_VOICE_METADATA, VOXPOPULI_METADATA
 from src.database import Base, engine
-from src.processors import CommonVoice, VoxPopuli
+from src.extractors import CommonVoice, VoxPopuli
 
 logger = structlog.get_logger(level="INFO")
 Base.metadata.create_all(bind=engine)
