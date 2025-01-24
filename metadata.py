@@ -45,3 +45,11 @@ COMMON_VOICE_METADATA = [
     #     source_part="train",
     # ),
 ]
+
+FLEURS_METADATA = [
+    DataMetaData(
+        data_path="data/fleurs/dev.tsv",
+        audio_dir_path="data/fleurs/dev",
+        source_part="dev",
+    ),
+]
