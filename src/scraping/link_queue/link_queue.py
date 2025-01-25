@@ -43,4 +43,10 @@ class LinkQueue:
         await self.client.rpush(self.id, record.model_dump_json())  # type: ignore
 
     async def pop(self) -> Any:
-        return URLRecord.model_validate_json(await self.client.rpop(self.id))  # type: ignore
+        record = await self.client.brpop(self.id, timeout=1)  # type: ignore
+        if not record:
+            return None
+        return URLRecord.model_validate_json(record[1])
+
+    async def length(self):
+        return await self.client.llen(self.id)  # type: ignore
