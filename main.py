@@ -1,7 +1,11 @@
 import structlog
 from sqlalchemy.orm import sessionmaker
 
-from metadata import COMMON_VOICE_METADATA, FLEURS_METADATA, VOXPOPULI_METADATA
+from metadata.os_metadata import (
+    COMMON_VOICE_METADATA,
+    FLEURS_METADATA,
+    VOXPOPULI_METADATA,
+)
 from src.database import Base, engine
 from src.extractors import CommonVoice, Fleurs, VoxPopuli
 
