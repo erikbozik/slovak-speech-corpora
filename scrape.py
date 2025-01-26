@@ -1,36 +1,49 @@
 import asyncio
+from typing import Any, AsyncGenerator, Type
 
 import structlog
 
 from metadata.scraping_metadata import links
 from src.redis_client import redis_client
-from src.scraping.crawlers import DLTranscript
-from src.scraping.link_queue import LinkQueue
+from src.scraping.crawlers import DLTranscript, Scraper
+from src.scraping.link_queue import LinkQueue, URLRecord
 
 logger = structlog.get_logger()
 
 
-async def scrape_meetings(queue: LinkQueue):
+async def scrape(queue: LinkQueue, scraper: Type[Scraper]) -> AsyncGenerator[Any, None]:
     length = await queue.length()
     while length > 0:
-        url = await queue.pop()
+        item: URLRecord = await queue.pop()
         try:
-            crawler = DLTranscript(str(url.url))
-            await crawler.scrape()
+            crawler = scraper(str(item.url))
+            async for item in crawler.scrape():
+                yield item
         except Exception as e:
-            await queue.rollback(url)
+            await logger.awarning(f"Rolling back {item}")
+            await queue.rollback(item)
             await logger.aerror(f"{e}. Error occured, exiting.")
             raise e
-        length = await queue.length()
+
+
+async def push_result_to_queue(
+    source_queue: LinkQueue, target_queue: LinkQueue, scraper: Type[Scraper]
+):
+    items = [item async for item in scrape(source_queue, scraper)]
+    await target_queue.add(items)
 
 
 async def main():
-    meetings_queue = LinkQueue("transcripts", redis_client)
+    meetings_queue = LinkQueue("meetings", redis_client)
+    transcripts_queue = LinkQueue("transcripts", redis_client)
+
     await meetings_queue.add(links)
 
     async with asyncio.TaskGroup() as group:
         for _ in range(3):
-            group.create_task(scrape_meetings(meetings_queue))
+            group.create_task(
+                push_result_to_queue(meetings_queue, transcripts_queue, DLTranscript)
+            )
 
 
 asyncio.run(main())
