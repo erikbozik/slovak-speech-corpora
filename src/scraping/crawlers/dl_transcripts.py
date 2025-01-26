@@ -3,6 +3,9 @@ from urllib.parse import urljoin
 
 import structlog
 from playwright.async_api import async_playwright
+from pydantic import HttpUrl
+
+from ..link_queue.schemas import MetaData, URLRecord
 
 logger = structlog.get_logger()
 
@@ -15,12 +18,14 @@ class DLTranscript:
 
     async def scrape(self):
         async with async_playwright() as p:
-            return await self._crawl(p)
+            async for item in self._crawl(p):
+                yield item
 
     async def _crawl(self, p):
         browser = await p.chromium.launch(headless=False)
         try:
-            return await self._browse(browser)
+            async for item in self._browse(browser):
+                yield item
         finally:
             await browser.close()
 
@@ -29,7 +34,6 @@ class DLTranscript:
         await page.goto(self.url)
         await page.wait_for_selector("//a[text()='Prepis zo schôdze']")
         await page.click("//a[text()='Prepis zo schôdze']")
-        all_links = []
         current_page = 1
         while True:
             await logger.ainfo(f"Scraping page {current_page}...", url=self.url)
@@ -38,7 +42,10 @@ class DLTranscript:
             elements = await page.query_selector_all("td.doc a")
             for el in elements:
                 link = await el.get_attribute("href")
-                all_links.append(link)
+                yield URLRecord(
+                    url=HttpUrl(urljoin(self.url, link)),
+                    metadata=MetaData(name="dummy"),
+                )
 
             current_page += 1
             try:
@@ -50,7 +57,3 @@ class DLTranscript:
             except Exception:
                 await logger.ainfo("No more pages.", url=self.url)
                 break
-
-        await logger.ainfo(f"Total links: {len(all_links)}", url=self.url)
-
-        return [urljoin(self.url, link) for link in all_links]
