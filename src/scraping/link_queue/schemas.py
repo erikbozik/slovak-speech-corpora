@@ -1,8 +1,12 @@
-from pydantic import BaseModel, HttpUrl
+from datetime import datetime
+
+from pydantic import BaseModel, Field, HttpUrl
 
 
 class MetaData(BaseModel):
     name: str
+    category: str | None = Field(default=None)
+    snapshot: datetime | None = Field(default=None)
 
 
 class URLRecord(BaseModel):
