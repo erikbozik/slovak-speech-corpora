@@ -11,13 +11,15 @@ from src.scraping.link_queue import LinkQueue, URLRecord
 logger = structlog.get_logger()
 
 
-async def scrape(queue: LinkQueue, scraper: Type[Scraper]) -> AsyncGenerator[Any, None]:
+async def scrape(
+    queue: LinkQueue, scraper: Type[Scraper], **kwargs
+) -> AsyncGenerator[Any, None]:
     length = await queue.length()
     while length > 0:
         item_to_scrape: URLRecord = await queue.pop()
         try:
             crawler = scraper(str(item_to_scrape.url))
-            async for item in crawler.scrape():
+            async for item in crawler.scrape(**kwargs):
                 yield item
         except Exception as e:
             await logger.awarning(f"Rolling back {item_to_scrape}")
