@@ -35,7 +35,7 @@ async def push_result_to_queue(
 
 
 async def main():
-    meetings_queue = LinkQueue("meetings", redis_client)
+    meetings_queue = LinkQueue("terms", redis_client)
     transcripts_queue = LinkQueue("transcripts", redis_client)
 
     await meetings_queue.add(links)
