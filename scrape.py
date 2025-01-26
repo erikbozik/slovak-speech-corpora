@@ -14,14 +14,14 @@ logger = structlog.get_logger()
 async def scrape(queue: LinkQueue, scraper: Type[Scraper]) -> AsyncGenerator[Any, None]:
     length = await queue.length()
     while length > 0:
-        item: URLRecord = await queue.pop()
+        item_to_scrape: URLRecord = await queue.pop()
         try:
-            crawler = scraper(str(item.url))
+            crawler = scraper(str(item_to_scrape.url))
             async for item in crawler.scrape():
                 yield item
         except Exception as e:
-            await logger.awarning(f"Rolling back {item}")
-            await queue.rollback(item)
+            await logger.awarning(f"Rolling back {item_to_scrape}")
+            await queue.rollback(item_to_scrape)
             await logger.aerror(f"{e}. Error occured, exiting.")
             raise e
 
@@ -29,8 +29,9 @@ async def scrape(queue: LinkQueue, scraper: Type[Scraper]) -> AsyncGenerator[Any
 async def push_result_to_queue(
     source_queue: LinkQueue, target_queue: LinkQueue, scraper: Type[Scraper]
 ):
-    items = [item async for item in scrape(source_queue, scraper)]
-    await target_queue.add(items)
+    async for item in scrape(source_queue, scraper):
+        await target_queue.add(item)
+        await logger.ainfo(f"{item} added")
 
 
 async def main():
