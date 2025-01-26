@@ -6,11 +6,12 @@ from playwright.async_api import async_playwright
 from pydantic import HttpUrl
 
 from ..link_queue.schemas import MetaData, URLRecord
+from .parent import Scraper
 
 logger = structlog.get_logger()
 
 
-class DLTranscript:
+class DLTranscript(Scraper):
     url: str
 
     def __init__(self, url: str):
