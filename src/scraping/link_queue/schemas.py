@@ -12,3 +12,8 @@ class MetaData(BaseModel):
 class URLRecord(BaseModel):
     url: HttpUrl
     metadata: MetaData
+
+
+class FileRecord(BaseModel):
+    name: str
+    content: bytes

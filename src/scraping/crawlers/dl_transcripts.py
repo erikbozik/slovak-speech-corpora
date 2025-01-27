@@ -1,4 +1,5 @@
 import asyncio
+import random
 import re
 from datetime import datetime
 from urllib.parse import urljoin
@@ -15,9 +16,11 @@ logger = structlog.get_logger()
 
 class DLTranscript(Scraper):
     url: str
+    metadata: MetaData
 
-    def __init__(self, url: str):
-        self.url = url
+    def __init__(self, data: URLRecord):
+        self.url = str(data.url)
+        self.metadata = data.metadata
 
     async def scrape(self):
         async with async_playwright() as p:
@@ -59,22 +62,17 @@ class DLTranscript(Scraper):
                     f"//div[@class='pager']//span[text()='{current_page}']",
                     timeout=3000,
                 )
-                await asyncio.sleep(2)
+                await asyncio.sleep(random.uniform(1, 5))
             except Exception:
                 await logger.ainfo("No more pages.", url=self.url)
                 break
 
     async def get_metadata(self, full_text: str) -> MetaData:
-        non_valid_strings = ["Stenografická správa", "Stenozáznam"]
-        if any(s in full_text for s in non_valid_strings):
-            await logger.awarning(f"{full_text} could not be validly parsed.")
-            return MetaData(name=full_text)
-
         splitted = full_text.split(",")
 
         if len(splitted) != 3:
             await logger.awarning(f"{full_text} could not be properly splitted.")
-            raise ValueError
+            return MetaData(name=full_text)
 
         name = splitted[0]
 
