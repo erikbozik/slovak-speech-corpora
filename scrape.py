@@ -2,7 +2,6 @@ import asyncio
 import os
 from pathlib import Path
 from typing import Any, AsyncGenerator, Type
-from uuid import uuid4
 
 import aiofiles
 import aiohttp
@@ -33,7 +32,7 @@ async def scrape(
         async with LOCK:
             ACTIVE[task_id] = item_to_scrape
 
-        crawler = scraper(str(item_to_scrape.url))
+        crawler = scraper(item_to_scrape)
         async for item in crawler.scrape(**kwargs):
             yield item
 
@@ -53,9 +52,9 @@ async def save_result(
     source_queue: LinkQueue, scraper: Type[Scraper], task_id: int, **kwargs
 ):
     async for item in scrape(source_queue, scraper, task_id=task_id, **kwargs):
-        filename = Path(TRANSCRIPT_DIR) / f"{uuid4()}.docx"
+        filename = Path(TRANSCRIPT_DIR) / item.name
         async with aiofiles.open(filename, mode="wb") as file:
-            await file.write(item)
+            await file.write(item.content)
             await logger.ainfo(f"{filename} saved")
 
 
@@ -101,7 +100,7 @@ async def main():
         await start_transcripts(transcripts_queue)
     except Exception as e:
         for item in ACTIVE.values():
-            await meetings_queue.rollback(item)
+            await transcripts_queue.rollback(item)
         raise e
     finally:
         ACTIVE.clear()
