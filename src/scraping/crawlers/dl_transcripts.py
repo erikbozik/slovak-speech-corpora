@@ -2,12 +2,14 @@ import asyncio
 import random
 import re
 from datetime import datetime
+from typing import AsyncGenerator
 from urllib.parse import urljoin
 
 import structlog
 from playwright.async_api import async_playwright
 from pydantic import HttpUrl
 
+from ..link_queue import LinkQueue
 from ..link_queue.schemas import MetaData, URLRecord
 from .parent import Scraper
 
@@ -22,12 +24,16 @@ class DLTranscript(Scraper):
         self.url = str(data.url)
         self.metadata = data.metadata
 
-    async def scrape(self):
+    async def scrape(self) -> AsyncGenerator[URLRecord]:
         async with async_playwright() as p:
             async for item in self._crawl(p):
                 yield item
 
-    async def _crawl(self, p):
+    async def save(self, item: URLRecord, target_queue: LinkQueue):
+        await target_queue.add(item)
+        await logger.ainfo(f"{item} added")
+
+    async def _crawl(self, p) -> AsyncGenerator[URLRecord]:
         browser = await p.chromium.launch(headless=False)
         try:
             async for item in self._browse(browser):
@@ -35,7 +41,7 @@ class DLTranscript(Scraper):
         finally:
             await browser.close()
 
-    async def _browse(self, browser):
+    async def _browse(self, browser) -> AsyncGenerator[URLRecord]:
         page = await browser.new_page()
         await page.goto(self.url)
         await page.wait_for_selector("//a[text()='Prepis zo schôdze']")
