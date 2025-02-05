@@ -14,6 +14,13 @@ class URLRecord(BaseModel):
     metadata: MetaData
 
 
-class FileRecord(BaseModel):
-    name: str
-    content: bytes
+class NRSRMeetingRecord(BaseModel):
+    meeting_name: str
+    snapshot: datetime | None
+    scraped_file: bytes
+    scraped_file_type: str
+
+
+# class FileRecord(BaseModel):
+#     name: str
+#     content: bytes

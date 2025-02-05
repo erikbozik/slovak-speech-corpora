@@ -24,7 +24,7 @@ class DLTranscript(Scraper):
         self.url = str(data.url)
         self.metadata = data.metadata
 
-    async def scrape(self) -> AsyncGenerator[URLRecord]:
+    async def scrape(self) -> AsyncGenerator[URLRecord, None]:
         async with async_playwright() as p:
             async for item in self._crawl(p):
                 yield item
@@ -33,7 +33,7 @@ class DLTranscript(Scraper):
         await target_queue.add(item)
         await logger.ainfo(f"{item} added")
 
-    async def _crawl(self, p) -> AsyncGenerator[URLRecord]:
+    async def _crawl(self, p) -> AsyncGenerator[URLRecord, None]:
         browser = await p.chromium.launch(headless=False)
         try:
             async for item in self._browse(browser):
@@ -41,7 +41,7 @@ class DLTranscript(Scraper):
         finally:
             await browser.close()
 
-    async def _browse(self, browser) -> AsyncGenerator[URLRecord]:
+    async def _browse(self, browser) -> AsyncGenerator[URLRecord, None]:
         page = await browser.new_page()
         await page.goto(self.url)
         await page.wait_for_selector("//a[text()='Prepis zo schôdze']")

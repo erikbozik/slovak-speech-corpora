@@ -12,3 +12,6 @@ class Scraper(ABC):
 
     @abstractmethod
     async def scrape(self, **kwargs) -> AsyncGenerator[Any, None]: ...
+
+    @abstractmethod
+    async def save(self, item: Any, **kwargs) -> None: ...
