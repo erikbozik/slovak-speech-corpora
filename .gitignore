@@ -2,7 +2,7 @@
 common_voice/
 fleurs/
 voxpopuli/
-
+archive/
 # Except the links.txt files
 !common_voice/links.txt
 !fleurs/links.txt

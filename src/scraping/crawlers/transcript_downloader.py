@@ -33,7 +33,7 @@ class TranscriptDownloader(Scraper):
             extension = self.get_extension_from_content_type(content_type)
             yield NRSRTranscript(
                 meeting_name=self.metadata.name,
-                meeting_num=self.get_meeting_num(),
+                meeting_num=await self.get_meeting_num(),
                 snapshot=self.metadata.snapshot if self.metadata.snapshot else None,
                 scraped_file=content,
                 scraped_file_type=extension,
@@ -44,13 +44,15 @@ class TranscriptDownloader(Scraper):
             session.add(item)
         await logger.ainfo(f"{item.meeting_name} added to database")
 
-    def get_meeting_num(self) -> int | None:
+    async def get_meeting_num(self) -> int | None:
         number_match = re.findall(
             r"(\d+)\.\s*schôdza",
             str(self.metadata.category),
         )
         if number_match:
             return int(number_match[0])
+
+        await logger.awarning(f"Could not parse meeting num from: {self.metadata.name}")
         return None
 
     @staticmethod
