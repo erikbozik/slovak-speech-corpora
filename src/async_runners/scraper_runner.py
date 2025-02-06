@@ -5,7 +5,12 @@ import structlog
 from aiohttp import ClientSession
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from src.scraping.crawlers import DLTranscript, Scraper, TranscriptDownloader
+from src.scraping.crawlers import (
+    DLTranscript,
+    NRSRRecording,
+    Scraper,
+    TranscriptDownloader,
+)
 from src.scraping.link_queue import LinkQueue, URLRecord
 
 logger = structlog.get_logger()
@@ -56,5 +61,18 @@ class ScraperRunner:
         await self.scrape(
             source_queue,
             DLTranscript,
+            saving_kwargs={"target_queue": target_queue},
+        )
+
+    async def list_recordings_task(
+        self,
+        source_queue: LinkQueue,
+        target_queue: LinkQueue,
+        http_client: ClientSession,
+    ):
+        await self.scrape(
+            source_queue,
+            NRSRRecording,
+            scraping_kwargs={"client": http_client},
             saving_kwargs={"target_queue": target_queue},
         )

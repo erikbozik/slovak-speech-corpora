@@ -33,3 +33,14 @@ class NRSRTranscript(Base):
     scraped_file_type = Column(String, nullable=False)
     xhtml_parsed = Column(String)
     json_parsed = Column(JSONB)
+
+
+class NRSRRecording(Base):
+    __tablename__ = "nrsr_recording"
+
+    id = Column(Integer, primary_key=True)
+    meeting_name = Column(String)
+    meeting_num = Column(String)
+    snapshot = Column(Date)
+    video_recording = Column(LargeBinary)
+    recording = Column(LargeBinary)
