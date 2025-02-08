@@ -70,5 +70,11 @@ async def main(client: ClientSession | None = None):
     ]
     await runner.run_tasks(video_recordings_tasks)
 
+    video_downloading_tasks = [
+        runner.download_video_recordings(video_recordings, client)
+    ]
+
+    await runner.run_tasks(video_downloading_tasks)
+
 
 asyncio.run(main())

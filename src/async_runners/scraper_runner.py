@@ -12,6 +12,7 @@ from src.scraping.crawlers import (
     Scraper,
     TermsRecording,
     TranscriptDownloader,
+    VideoDownloader,
 )
 from src.scraping.link_queue import LinkQueue, URLRecord
 
@@ -49,7 +50,7 @@ class ScraperRunner:
                     await asyncio.sleep(random.uniform(1, 3))
 
                 item_to_scrape: URLRecord = await queue.pop()
-        except Exception as e:
+        except (asyncio.exceptions.CancelledError, Exception) as e:
             await queue.rollback(item_to_scrape)
             raise e
 
@@ -95,4 +96,11 @@ class ScraperRunner:
             RecordingPages,
             scraping_kwargs={"client": http_client},
             saving_kwargs={"target_queue": target_queue},
+        )
+
+    async def download_video_recordings(
+        self, source_queue: LinkQueue, http_client: ClientSession
+    ):
+        await self.scrape(
+            source_queue, VideoDownloader, scraping_kwargs={"client": http_client}
         )
