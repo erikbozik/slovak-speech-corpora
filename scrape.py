@@ -4,7 +4,7 @@ import structlog
 from aiohttp import ClientSession
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from metadata.scraping_metadata import dl_links
+from metadata.scraping_metadata import dl_links, recording_links
 from src.async_runners import ScraperRunner
 from src.database import Base, async_engine
 from src.redis_client import redis_client
@@ -23,6 +23,7 @@ async def main():
 
     meetings_queue = LinkQueue("terms", redis_client)
     transcripts_queue = LinkQueue("transcripts", redis_client)
+
     await meetings_queue.add(dl_links)
 
     runner = ScraperRunner(session_maker)
@@ -41,6 +42,21 @@ async def main():
         ]
 
         await runner.run_tasks(transcript_tasks)
+
+    recording_list = LinkQueue("recordings_list", redis_client)
+
+    await recording_list.add(recording_links)
+
+    recording_pages = LinkQueue("recording_pages", redis_client)
+
+    async with ClientSession() as client:
+        recording_list_tasks = [
+            runner.list_recordings_task(
+                recording_list, recording_pages, http_client=client
+            )
+            for _ in range(10)
+        ]
+        await runner.run_tasks(recording_list_tasks)
 
 
 asyncio.run(main())
