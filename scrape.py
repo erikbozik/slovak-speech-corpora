@@ -36,6 +36,7 @@ async def main(client: ClientSession | None = None):
 
     recording_list = LinkQueue("recordings_list", redis_client)
     recording_pages = LinkQueue("recording_pages", redis_client)
+    video_recordings = LinkQueue("video_recordings", redis_client)
 
     await meetings_queue.add(dl_links)
     await recording_list.add(recording_links)
@@ -44,7 +45,7 @@ async def main(client: ClientSession | None = None):
 
     meetings_tasks = [
         runner.terms_task(source_queue=meetings_queue, target_queue=transcripts_queue)
-        for _ in range(9)
+        for _ in range(10)
     ]
 
     await runner.run_tasks(meetings_tasks)
@@ -55,12 +56,19 @@ async def main(client: ClientSession | None = None):
     ]
 
     await runner.run_tasks(transcript_tasks)
-
     recording_list_tasks = [
         runner.list_recordings_task(recording_list, recording_pages, http_client=client)
         for _ in range(10)
     ]
+
     await runner.run_tasks(recording_list_tasks)
+    video_recordings_tasks = [
+        runner.list_video_recordings_task(
+            recording_pages, video_recordings, http_client=client
+        )
+        for _ in range(10)
+    ]
+    await runner.run_tasks(video_recordings_tasks)
 
 
 asyncio.run(main())

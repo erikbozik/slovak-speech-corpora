@@ -1,5 +1,3 @@
-import asyncio
-import random
 import re
 from typing import AsyncGenerator
 
@@ -27,7 +25,6 @@ class TranscriptDownloader(Scraper):
         self, client: ClientSession
     ) -> AsyncGenerator[NRSRTranscript, None]:
         async with client.get(self.url) as response:
-            await asyncio.sleep(random.uniform(1, 3))
             content = await response.read()
             content_type = response.headers.get("Content-Type", "")
             extension = self.get_extension_from_content_type(content_type)

@@ -1,5 +1,3 @@
-import asyncio
-import random
 import re
 from datetime import datetime
 from typing import AsyncGenerator
@@ -68,7 +66,6 @@ class DLTranscript(Scraper):
                     f"//div[@class='pager']//span[text()='{current_page}']",
                     timeout=3000,
                 )
-                await asyncio.sleep(random.uniform(1, 5))
             except Exception:
                 await logger.ainfo("No more pages.", url=self.url)
                 break

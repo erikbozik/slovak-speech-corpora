@@ -1,4 +1,5 @@
 import asyncio
+import random
 from typing import Any, Type
 
 import structlog
@@ -7,8 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.scraping.crawlers import (
     DLTranscript,
-    NRSRRecording,
+    RecordingPages,
     Scraper,
+    TermsRecording,
     TranscriptDownloader,
 )
 from src.scraping.link_queue import LinkQueue, URLRecord
@@ -39,7 +41,12 @@ class ScraperRunner:
             while item_to_scrape:
                 crawler = scraper(item_to_scrape)
                 async for item in crawler.scrape(**scraping_kwargs):
-                    await crawler.save(item, **saving_kwargs)
+                    if item:
+                        await crawler.save(item, **saving_kwargs)
+                    else:
+                        await logger.awarning(f"{item} parsed None")
+
+                    await asyncio.sleep(random.uniform(1, 3))
 
                 item_to_scrape: URLRecord = await queue.pop()
         except Exception as e:
@@ -72,7 +79,20 @@ class ScraperRunner:
     ):
         await self.scrape(
             source_queue,
-            NRSRRecording,
+            TermsRecording,
+            scraping_kwargs={"client": http_client},
+            saving_kwargs={"target_queue": target_queue},
+        )
+
+    async def list_video_recordings_task(
+        self,
+        source_queue: LinkQueue,
+        target_queue: LinkQueue,
+        http_client: ClientSession,
+    ):
+        await self.scrape(
+            source_queue,
+            RecordingPages,
             scraping_kwargs={"client": http_client},
             saving_kwargs={"target_queue": target_queue},
         )

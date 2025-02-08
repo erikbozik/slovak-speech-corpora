@@ -1,4 +1,5 @@
-from .parent import Scraper
 from .dl_transcripts import DLTranscript
+from .nrsr_recording import TermsRecording
+from .parent import Scraper
 from .transcript_downloader import TranscriptDownloader
-from .nrsr_recording import NRSRRecording
+from .recording_pages import RecordingPages

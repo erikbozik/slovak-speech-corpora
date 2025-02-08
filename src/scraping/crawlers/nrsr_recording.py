@@ -1,5 +1,3 @@
-import asyncio
-import random
 import re
 from typing import AsyncGenerator
 from urllib.parse import urljoin
@@ -16,7 +14,7 @@ from .parent import Scraper
 logger = structlog.get_logger()
 
 
-class NRSRRecording(Scraper):
+class TermsRecording(Scraper):
     url: str
     metadata: MetaData
 
@@ -29,8 +27,6 @@ class NRSRRecording(Scraper):
         while content:
             async for meeting in self.parse_meetings(content):
                 yield meeting
-
-            await asyncio.sleep(random.uniform(1, 3))
 
             next_url = self.get_next_page(content)
             if next_url:
