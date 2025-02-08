@@ -101,6 +101,10 @@ class ScraperRunner:
     async def download_video_recordings(
         self, source_queue: LinkQueue, http_client: ClientSession
     ):
-        await self.scrape(
-            source_queue, VideoDownloader, scraping_kwargs={"client": http_client}
-        )
+        async with self.session_maker() as session:
+            await self.scrape(
+                source_queue,
+                VideoDownloader,
+                scraping_kwargs={"client": http_client},
+                saving_kwargs={"session": session},
+            )

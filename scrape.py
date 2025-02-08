@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from functools import wraps
 
 import structlog
@@ -10,7 +11,10 @@ from src.database import Base, async_engine
 from src.redis_client import redis_client
 from src.scraping.link_queue import LinkQueue
 
-logger = structlog.get_logger()
+structlog.configure(
+    wrapper_class=structlog.make_filtering_bound_logger(logging.WARNING),
+)
+logger = structlog.get_logger(level="WARNING")
 
 
 def with_client_session(func):
@@ -45,20 +49,20 @@ async def main(client: ClientSession | None = None):
 
     meetings_tasks = [
         runner.terms_task(source_queue=meetings_queue, target_queue=transcripts_queue)
-        for _ in range(10)
+        for _ in range(5)
     ]
 
     await runner.run_tasks(meetings_tasks)
 
     transcript_tasks = [
         runner.transcript_task(source_queue=transcripts_queue, http_client=client)
-        for _ in range(10)
+        for _ in range(5)
     ]
 
     await runner.run_tasks(transcript_tasks)
     recording_list_tasks = [
         runner.list_recordings_task(recording_list, recording_pages, http_client=client)
-        for _ in range(10)
+        for _ in range(5)
     ]
 
     await runner.run_tasks(recording_list_tasks)
@@ -66,12 +70,12 @@ async def main(client: ClientSession | None = None):
         runner.list_video_recordings_task(
             recording_pages, video_recordings, http_client=client
         )
-        for _ in range(10)
+        for _ in range(5)
     ]
     await runner.run_tasks(video_recordings_tasks)
 
     video_downloading_tasks = [
-        runner.download_video_recordings(video_recordings, client)
+        runner.download_video_recordings(video_recordings, client) for _ in range(5)
     ]
 
     await runner.run_tasks(video_downloading_tasks)

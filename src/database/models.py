@@ -40,7 +40,10 @@ class NRSRRecording(Base):
 
     id = Column(Integer, primary_key=True)
     meeting_name = Column(String)
-    meeting_num = Column(String)
+    meeting_num = Column(Integer)
     snapshot = Column(Date)
     video_recording = Column(LargeBinary)
-    recording = Column(LargeBinary)
+    audio_recording = Column(LargeBinary)
+    video_format = Column(String)
+    audio_format = Column(String)
+    duration = Column(Float)

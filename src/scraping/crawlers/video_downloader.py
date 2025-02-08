@@ -1,10 +1,13 @@
+import asyncio
 import re
 from urllib.parse import urljoin
 
-import aiofiles
 import structlog
 from aiohttp import ClientSession
+from sqlalchemy.ext.asyncio import AsyncSession
 from tqdm import tqdm
+
+from src.database import NRSRRecording
 
 from ..link_queue import MetaData, URLRecord
 from .parent import Scraper
@@ -36,19 +39,68 @@ class VideoDownloader(Scraper):
         async with client.get(chunklist_url) as response:
             content = await response.text()
 
+        result = bytes()
         for ts_url in tqdm(self.get_ts_urls(chunklist_url, content)):
             async with client.get(ts_url) as response:
                 chunk = await response.content.read()
                 if not chunk:
                     await logger.aerror("Empty chunk recieved")
                     continue
-                yield chunk
+                result += chunk
 
-    async def save(self, chunk: bytes):
-        async with aiofiles.open(
-            self.metadata.name + str(self.metadata.snapshot), "ab"
-        ) as f:
-            await f.write(chunk)
+        meeting_num = re.findall(r"(\d+)\.\s*schôdza", self.metadata.name)
+
+        if meeting_num:
+            meeting_num = int(meeting_num[0])
+        else:
+            await logger.aerror(f"Could not parse meeting num out of {self.url}")
+            meeting_num = None
+
+        result = await self.convert_ts_to_mp4_bytes(result)
+
+        yield NRSRRecording(
+            meeting_name=self.metadata.name,
+            meeting_num=meeting_num,
+            snapshot=self.metadata.snapshot,
+            video_recording=result,
+            video_format="mp4",
+        )
+
+    async def save(self, item: NRSRRecording, session: AsyncSession):
+        async with session.begin():
+            session.add(item)
+        await logger.ainfo(f"{item} added to database")
+
+    @staticmethod
+    async def convert_ts_to_mp4_bytes(ts_bytes):
+        process = await asyncio.create_subprocess_exec(
+            "ffmpeg",
+            "-i",
+            "pipe:0",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "fast",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "192k",
+            "-movflags",
+            "frag_keyframe+empty_moov",
+            "-f",
+            "mp4",
+            "pipe:1",
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        mp4_bytes, error = await process.communicate(input=ts_bytes)
+
+        if process.returncode != 0:
+            raise RuntimeError(f"ffmpeg error: {error.decode()}")
+
+        return mp4_bytes
 
     @staticmethod
     def get_ts_urls(chunklist_url: str, content: str) -> list[str]:
