@@ -14,7 +14,7 @@ from src.scraping.link_queue import LinkQueue
 structlog.configure(
     wrapper_class=structlog.make_filtering_bound_logger(logging.WARNING),
 )
-logger = structlog.get_logger(level="WARNING")
+logger = structlog.get_logger()
 
 
 def with_client_session(func):

@@ -47,7 +47,7 @@ class ScraperRunner:
                     else:
                         await logger.awarning(f"{item} parsed None")
 
-                    await asyncio.sleep(random.uniform(1, 3))
+                await asyncio.sleep(random.uniform(1, 3))
 
                 item_to_scrape: URLRecord = await queue.pop()
         except (asyncio.exceptions.CancelledError, Exception) as e:

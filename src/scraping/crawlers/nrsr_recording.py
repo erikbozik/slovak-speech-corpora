@@ -1,3 +1,5 @@
+import asyncio
+import random
 import re
 from typing import AsyncGenerator
 from urllib.parse import urljoin
@@ -29,6 +31,7 @@ class TermsRecording(Scraper):
                 yield meeting
 
             next_url = self.get_next_page(content)
+            await asyncio.sleep(random.uniform(1, 3))
             if next_url:
                 content = await self.browse(next_url, client)
             else:

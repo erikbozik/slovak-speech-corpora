@@ -66,6 +66,7 @@ class DLTranscript(Scraper):
                     f"//div[@class='pager']//span[text()='{current_page}']",
                     timeout=3000,
                 )
+                await logger.ainfo("Clicked next page", url=self.url)
             except Exception:
                 await logger.ainfo("No more pages.", url=self.url)
                 break
