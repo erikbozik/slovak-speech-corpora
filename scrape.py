@@ -12,7 +12,7 @@ from src.redis_client import redis_client
 from src.scraping.link_queue import LinkQueue
 
 structlog.configure(
-    wrapper_class=structlog.make_filtering_bound_logger(logging.WARNING),
+    wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
 )
 logger = structlog.get_logger()
 
@@ -75,7 +75,7 @@ async def main(client: ClientSession | None = None):
     await runner.run_tasks(video_recordings_tasks)
 
     video_downloading_tasks = [
-        runner.download_video_recordings(video_recordings, client) for _ in range(5)
+        runner.download_video_recordings(video_recordings, client) for _ in range(1)
     ]
 
     await runner.run_tasks(video_downloading_tasks)

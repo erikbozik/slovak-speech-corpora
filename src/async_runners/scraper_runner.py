@@ -1,4 +1,5 @@
 import asyncio
+import os
 import random
 from typing import Any, Type
 
@@ -101,10 +102,11 @@ class ScraperRunner:
     async def download_video_recordings(
         self, source_queue: LinkQueue, http_client: ClientSession
     ):
+        os.makedirs("data/nrsr/recordings", exist_ok=True)
         async with self.session_maker() as session:
             await self.scrape(
                 source_queue,
                 VideoDownloader,
                 scraping_kwargs={"client": http_client},
-                saving_kwargs={"session": session},
+                saving_kwargs={"session": session, "folder": "data/nrsr/recordings"},
             )

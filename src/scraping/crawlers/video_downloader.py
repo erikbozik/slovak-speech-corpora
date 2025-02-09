@@ -1,15 +1,17 @@
 import asyncio
 import re
+from pathlib import Path
 from urllib.parse import urljoin
 
+import aiofiles
 import structlog
 from aiohttp import ClientSession
 from sqlalchemy.ext.asyncio import AsyncSession
-from tqdm import tqdm
 
 from src.database import NRSRRecording
+from src.extractors.utils import AudioAnalyzer
 
-from ..link_queue import MetaData, URLRecord
+from ..link_queue import MetaData, NRSRRecordingData, URLRecord
 from .parent import Scraper
 
 logger = structlog.get_logger()
@@ -36,17 +38,8 @@ class VideoDownloader(Scraper):
 
         chunklist_url = await self.get_chunklist_url(playlist_url, content)
 
-        async with client.get(chunklist_url) as response:
-            content = await response.text()
-
-        result = bytes()
-        for ts_url in tqdm(self.get_ts_urls(chunklist_url, content)):
-            async with client.get(ts_url) as response:
-                chunk = await response.content.read()
-                if not chunk:
-                    await logger.aerror("Empty chunk recieved")
-                    continue
-                result += chunk
+        await logger.ainfo(f"Extracting {self.url}")
+        result = await self.extract_audio_from_chunklist(chunklist_url)
 
         meeting_num = re.findall(r"(\d+)\.\s*schôdza", self.metadata.name)
 
@@ -55,52 +48,73 @@ class VideoDownloader(Scraper):
         else:
             await logger.aerror(f"Could not parse meeting num out of {self.url}")
             meeting_num = None
+        await logger.ainfo("Adding to database")
 
-        result = await self.convert_ts_to_mp4_bytes(result)
+        analyzed = AudioAnalyzer(result).analyze()
 
-        yield NRSRRecording(
-            meeting_name=self.metadata.name,
-            meeting_num=meeting_num,
-            snapshot=self.metadata.snapshot,
-            video_recording=result,
-            video_format="mp4",
+        duration, sampling_rate = analyzed.duration, analyzed.sampling_rate
+        size = len(result) / 1024**2
+
+        yield NRSRRecordingData(
+            audio=result,
+            metadata=NRSRRecording(
+                meeting_name=self.metadata.name,
+                meeting_num=meeting_num,
+                snapshot=self.metadata.snapshot,
+                audio_format="wav",
+                audio_size=size,
+                duration=duration,
+                sampling_rate=sampling_rate,
+            ),
         )
 
-    async def save(self, item: NRSRRecording, session: AsyncSession):
+    async def save(self, item: NRSRRecordingData, session: AsyncSession, folder: str):
+        recording_folder: Path = Path(folder)
         async with session.begin():
-            session.add(item)
-        await logger.ainfo(f"{item} added to database")
+            session.add(item.metadata)
+
+        filename = (
+            f"{item.metadata.meeting_num}_{item.metadata.snapshot.strftime('%d-%m-%Y')}"
+        )
+        path = recording_folder / filename
+
+        async with aiofiles.open(f"{path}.mp3", "wb") as file:
+            await file.write(item.audio)
+        await logger.ainfo(f"{filename} recording saved to the file system")
 
     @staticmethod
-    async def convert_ts_to_mp4_bytes(ts_bytes):
-        process = await asyncio.create_subprocess_exec(
+    async def extract_audio_from_chunklist(chunklist_url: str) -> bytes:
+        cmd = [
             "ffmpeg",
             "-i",
-            "pipe:0",
-            "-c:v",
-            "libx264",
-            "-preset",
-            "fast",
-            "-c:a",
-            "aac",
+            chunklist_url,
+            "-vn",
+            "-acodec",
+            "libmp3lame",  # Use the MP3 encoder instead of pcm_s16le
+            "-ar",
+            "48000",
+            "-ac",
+            "2",
             "-b:a",
-            "192k",
-            "-movflags",
-            "frag_keyframe+empty_moov",
+            "192k",  # Optional: set the audio bitrate
             "-f",
-            "mp4",
+            "mp3",  # Set the output format to mp3
             "pipe:1",
-            stdin=asyncio.subprocess.PIPE,
+        ]
+
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
 
-        mp4_bytes, error = await process.communicate(input=ts_bytes)
+        stdout, stderr = await process.communicate()
 
         if process.returncode != 0:
-            raise RuntimeError(f"ffmpeg error: {error.decode()}")
+            await logger.aerror("ffmpeg processing failed", error=stderr.decode())
+            raise Exception(f"ffmpeg process failed: {stderr.decode()}")
 
-        return mp4_bytes
+        return stdout
 
     @staticmethod
     def get_ts_urls(chunklist_url: str, content: str) -> list[str]:
