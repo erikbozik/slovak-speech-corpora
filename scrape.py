@@ -75,7 +75,7 @@ async def main(client: ClientSession | None = None):
     await runner.run_tasks(video_recordings_tasks)
 
     video_downloading_tasks = [
-        runner.download_video_recordings(video_recordings, client) for _ in range(1)
+        runner.download_video_recordings(video_recordings, client) for _ in range(5)
     ]
 
     await runner.run_tasks(video_downloading_tasks)

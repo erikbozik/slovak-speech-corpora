@@ -48,7 +48,6 @@ class VideoDownloader(Scraper):
         else:
             await logger.aerror(f"Could not parse meeting num out of {self.url}")
             meeting_num = None
-        await logger.ainfo("Adding to database")
 
         analyzed = AudioAnalyzer(result).analyze()
 
@@ -61,7 +60,7 @@ class VideoDownloader(Scraper):
                 meeting_name=self.metadata.name,
                 meeting_num=meeting_num,
                 snapshot=self.metadata.snapshot,
-                audio_format="wav",
+                audio_format="mp3",
                 audio_size=size,
                 duration=duration,
                 sampling_rate=sampling_rate,
