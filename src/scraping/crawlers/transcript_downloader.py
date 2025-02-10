@@ -1,13 +1,16 @@
-import asyncio
-import random
 import re
-import unicodedata
+from typing import AsyncGenerator
 
+import structlog
 from aiohttp import ClientSession
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..link_queue import FileRecord
+from src.database import NRSRTranscript
+
 from ..link_queue.schemas import MetaData, URLRecord
 from .parent import Scraper
+
+logger = structlog.get_logger()
 
 
 class TranscriptDownloader(Scraper):
@@ -18,27 +21,36 @@ class TranscriptDownloader(Scraper):
         self.url = str(data.url)
         self.metadata = data.metadata
 
-    async def scrape(self, client: ClientSession):
+    async def scrape(
+        self, client: ClientSession
+    ) -> AsyncGenerator[NRSRTranscript, None]:
         async with client.get(self.url) as response:
-            await asyncio.sleep(random.uniform(1, 3))
             content = await response.read()
             content_type = response.headers.get("Content-Type", "")
             extension = self.get_extension_from_content_type(content_type)
-            yield FileRecord(name=self.create_filename(extension), content=content)
+            yield NRSRTranscript(
+                meeting_name=self.metadata.name,
+                meeting_num=await self.get_meeting_num(),
+                snapshot=self.metadata.snapshot if self.metadata.snapshot else None,
+                scraped_file=content,
+                scraped_file_type=extension,
+            )
 
-    def create_filename(self, extension: str) -> str:
-        name = self.metadata.name
-        category = self.metadata.category if self.metadata.category else ""
-        date = (
-            self.metadata.snapshot.strftime("%Y-%m-%d")
-            if self.metadata.snapshot
-            else ""
+    async def save(self, item: NRSRTranscript, session: AsyncSession, **kwargs):
+        async with session.begin():
+            session.add(item)
+        await logger.ainfo(f"{item.meeting_name} added to database")
+
+    async def get_meeting_num(self) -> int | None:
+        number_match = re.findall(
+            r"(\d+)\.\s*schôdza",
+            str(self.metadata.category),
         )
-        final = f"{name}_{category}_{date}"
-        final = unicodedata.normalize("NFKD", final)
-        final = re.sub(r"\s+", "", final).lower()
-        final = final.encode("ascii", "ignore").decode("ascii")
-        return f"{final}.{extension}"
+        if number_match:
+            return int(number_match[0])
+
+        await logger.awarning(f"Could not parse meeting num from: {self.metadata.name}")
+        return None
 
     @staticmethod
     def get_extension_from_content_type(content_type: str) -> str:
