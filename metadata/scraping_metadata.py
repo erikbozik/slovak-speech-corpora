@@ -67,3 +67,42 @@ recording_links = [
         metadata=MetaData(name="nrsr2006"),
     ),
 ]
+
+members_links = [
+    URLRecord(
+        url=HttpUrl(
+            "https://www.nrsr.sk/web/Default.aspx?sid=poslanci/zoznam_abc&ListType=0&CisObdobia=9"
+        ),
+        metadata=MetaData(name="9"),
+    ),
+    URLRecord(
+        url=HttpUrl(
+            "https://www.nrsr.sk/web/Default.aspx?sid=poslanci/zoznam_abc&ListType=0&CisObdobia=8"
+        ),
+        metadata=MetaData(name="8"),
+    ),
+    URLRecord(
+        url=HttpUrl(
+            "https://www.nrsr.sk/web/Default.aspx?sid=poslanci/zoznam_abc&ListType=0&CisObdobia=7"
+        ),
+        metadata=MetaData(name="7"),
+    ),
+    URLRecord(
+        url=HttpUrl(
+            "https://www.nrsr.sk/web/Default.aspx?sid=poslanci/zoznam_abc&ListType=0&CisObdobia=6"
+        ),
+        metadata=MetaData(name="6"),
+    ),
+    URLRecord(
+        url=HttpUrl(
+            "https://www.nrsr.sk/web/Default.aspx?sid=poslanci/zoznam_abc&ListType=0&CisObdobia=5"
+        ),
+        metadata=MetaData(name="5"),
+    ),
+    URLRecord(
+        url=HttpUrl(
+            "https://www.nrsr.sk/web/Default.aspx?sid=poslanci/zoznam_abc&ListType=0&CisObdobia=4"
+        ),
+        metadata=MetaData(name="4"),
+    ),
+]

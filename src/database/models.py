@@ -1,4 +1,11 @@
-from sqlalchemy import Column, Date, Float, Integer, LargeBinary, String
+from sqlalchemy import (
+    Column,
+    Date,
+    Float,
+    Integer,
+    LargeBinary,
+    String,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import declarative_base
 
@@ -46,3 +53,11 @@ class NRSRRecording(Base):
     audio_size = Column(Float)
     duration = Column(Float)
     sampling_rate = Column(Integer)
+
+
+class Members(Base):
+    __tablename__ = "members"
+    id = Column(Integer, primary_key=True)
+    name = Column(String)
+    surname = Column(String)
+    term = Column(Integer)

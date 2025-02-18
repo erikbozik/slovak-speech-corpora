@@ -3,6 +3,7 @@ from typing import AsyncGenerator
 
 from aiohttp import ClientSession
 from sqlalchemy import and_, select
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from tqdm import tqdm
 
