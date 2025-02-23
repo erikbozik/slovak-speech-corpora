@@ -34,7 +34,11 @@ class NRSRMembers(Scraper):
     async def save(self, item: Members, session: AsyncSession, redis: Redis):
         async with session.begin():
             session.add(item)
-            await redis.sadd("members", str(item.name), str(item.surname))  # type: ignore
+            await redis.sadd(
+                "members",
+                *[str(i).strip() for i in item.name.split()],
+                *[str(i).strip() for i in item.surname.split()],
+            )  # type: ignore
         await session.commit()
 
     async def parse(self, content: str) -> AsyncGenerator[Members | None, None]:

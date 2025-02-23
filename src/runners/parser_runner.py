@@ -1,12 +1,12 @@
+from concurrent.futures import ProcessPoolExecutor
 from datetime import date
 from typing import Generator
 
-from redis.asyncio import Redis
 from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
 from src.database import NRSRTranscript
-from src.redis_client import redis_client
+
 from ..processors import TranscriptParser
 
 
@@ -32,21 +32,20 @@ class ParserRunner:
         for i in result.scalars():
             yield i
 
-    async def run(self, n: int, redis: Redis):
+    def run(self, n: int):
         records = [i for i in self.fetch_db(n)]
 
         while records:
-            await self.transform_records(records, redis)
-            # self.session.commit()
+            self.transform_records(records)
+
+            self.session.commit()
             records = [i for i in self.fetch_db(n)]
 
-    async def transform_records(self, records: list[NRSRTranscript], redis: Redis):
-        parsers = [TranscriptParser(str(i.xhtml_parsed), redis_client) for i in records]
+    def transform_records(self, records: list[NRSRTranscript]):
+        parsers = [TranscriptParser(str(i.xhtml_parsed)) for i in records]
 
-        for i in parsers:
-            await i.parse()
-        # with ProcessPoolExecutor() as executor:
-        #     tasks = [executor.submit(parser.parse) for parser in parsers]
+        with ProcessPoolExecutor() as pool:
+            futures = [pool.submit(i.parse) for i in parsers]
 
-        # for future, record in tqdm(zip(tasks, records)):
-        #     record.json_parsed = future.result()  # type: ignore
+        for transcript_future, record in zip(futures, records):
+            record.json_parsed = transcript_future.result()  # type: ignore
