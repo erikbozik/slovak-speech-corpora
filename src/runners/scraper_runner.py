@@ -5,10 +5,12 @@ from typing import Any, Type
 
 import structlog
 from aiohttp import ClientSession
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.scraping.crawlers import (
     DLTranscript,
+    NRSRMembers,
     RecordingPages,
     Scraper,
     TermsRecording,
@@ -109,4 +111,15 @@ class ScraperRunner:
                 VideoDownloader,
                 scraping_kwargs={"client": http_client},
                 saving_kwargs={"session": session, "folder": "data/nrsr/recordings"},
+            )
+
+    async def get_nrsr_members(
+        self, source_queue: LinkQueue, http_client: ClientSession, redis: Redis
+    ):
+        async with self.session_maker() as session:
+            await self.scrape(
+                source_queue,
+                NRSRMembers,
+                scraping_kwargs={"client": http_client},
+                saving_kwargs={"session": session, "redis": redis},
             )

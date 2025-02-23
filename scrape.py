@@ -5,10 +5,10 @@ from functools import wraps
 import structlog
 from aiohttp import ClientSession
 
-from metadata.scraping_metadata import dl_links, recording_links
-from src.async_runners import ScraperRunner, init_db
+from metadata.scraping_metadata import dl_links, members_links, recording_links
 from src.database import Base, async_engine
-from src.redis_client import redis_client
+from src.redis_client import async_redis_client
+from src.runners import ScraperRunner, init_db
 from src.scraping.link_queue import LinkQueue
 
 structlog.configure(
@@ -35,15 +35,17 @@ async def main(client: ClientSession | None = None):
 
     session_maker = await init_db(engine=async_engine, Base=Base)
 
-    meetings_queue = LinkQueue("terms", redis_client)
-    transcripts_queue = LinkQueue("transcripts", redis_client)
+    meetings_queue = LinkQueue("terms", async_redis_client)
+    transcripts_queue = LinkQueue("transcripts", async_redis_client)
 
-    recording_list = LinkQueue("recordings_list", redis_client)
-    recording_pages = LinkQueue("recording_pages", redis_client)
-    video_recordings = LinkQueue("video_recordings", redis_client)
+    recording_list = LinkQueue("recordings_list", async_redis_client)
+    recording_pages = LinkQueue("recording_pages", async_redis_client)
+    video_recordings = LinkQueue("video_recordings", async_redis_client)
+    nrsr_members_queue = LinkQueue("nrsr_members", async_redis_client)
 
     await meetings_queue.add(dl_links)
     await recording_list.add(recording_links)
+    await nrsr_members_queue.add(members_links)
 
     runner = ScraperRunner(session_maker)
 
@@ -79,6 +81,13 @@ async def main(client: ClientSession | None = None):
     ]
 
     await runner.run_tasks(video_downloading_tasks)
+
+    member_scraping_tasks = [
+        runner.get_nrsr_members(nrsr_members_queue, client, redis=async_redis_client)
+        for _ in range(5)
+    ]
+
+    await runner.run_tasks(member_scraping_tasks)
 
 
 asyncio.run(main())

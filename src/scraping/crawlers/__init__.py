@@ -4,3 +4,4 @@ from .parent import Scraper
 from .transcript_downloader import TranscriptDownloader
 from .recording_pages import RecordingPages
 from .video_downloader import VideoDownloader
+from .nrsr_members import NRSRMembers
