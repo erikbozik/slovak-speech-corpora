@@ -53,6 +53,8 @@ class NRSRRecording(Base):
     audio_size = Column(Float)
     duration = Column(Float)
     sampling_rate = Column(Integer)
+    vad_segments = Column(JSONB)
+    vad_duration_s = Column(Float)
 
 
 class Members(Base):
