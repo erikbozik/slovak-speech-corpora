@@ -40,6 +40,11 @@ class NRSRTranscript(Base):
     scraped_file_type = Column(String, nullable=False)
     xhtml_parsed = Column(String)
     json_parsed = Column(JSONB)
+    whisper_transcript = Column(JSONB)
+    wer = Column(Float)
+    word_timestamps_whisper = Column(JSONB)
+    aligned_segments = Column(JSONB)
+    word_timestamps = Column(JSONB)
 
 
 class NRSRRecording(Base):

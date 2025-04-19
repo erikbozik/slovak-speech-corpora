@@ -2,11 +2,9 @@ import warnings
 
 import numpy as np
 import structlog
-import torch
 from pydantic import BaseModel, Field
+from typing import Any
 
-from whisperX.whisperx import load_audio
-from whisperX.whisperx.vads import Pyannote
 
 logger = structlog.get_logger()
 warnings.filterwarnings(
@@ -29,7 +27,7 @@ class VadProcessor:
     SAMPLE_RATE: int = 16000
     device: str = "cuda"
     chunk_size: int = 30
-    vad_model: Pyannote
+    vad_model: Any
     default_vad_options = {
         "chunk_size": 30,
         "vad_onset": 0.500,
@@ -37,11 +35,16 @@ class VadProcessor:
     }
 
     def __init__(self) -> None:
+        import torch
+        from whisperX.whisperx.vads import Pyannote
+
         self.vad_model = Pyannote(
             torch.device(self.device), use_auth_token=None, **self.default_vad_options
         )
 
     def load_audio(self, file_path: str):
+        from whisperX.whisperx import load_audio
+
         logger.debug("Loading audio", file_path=file_path)
         audio = load_audio(file_path)
         logger.debug("Audio loaded", file_path=file_path)

@@ -7,27 +7,16 @@ import time
 from typing import Generator, List
 
 import structlog
-from pydantic import BaseModel, computed_field
 from sqlalchemy import String, cast, func, literal, select
 from sqlalchemy.orm import Session, aliased
 
 from src.database import NRSRRecording, NRSRTranscript
 
 from ..processors import VadProcessor
+from ..schemas import RecordingToProcess
 
-FILENAME = "/mnt/bigben/nrsr_recordings"
 
 logger = structlog.get_logger()
-
-
-class RecordingToProcess(BaseModel):
-    id: int
-    filename: str
-
-    @computed_field
-    @property
-    def file_path(self) -> str:
-        return f"{FILENAME}/{self.filename}"
 
 
 class VadRunner:

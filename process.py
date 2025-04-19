@@ -10,10 +10,17 @@ from aiohttp import ClientSession
 from sqlalchemy.orm import sessionmaker
 
 from src.database import Base, async_engine, engine
-from src.runners import ParserRunner, TikaRunner, VadRunner, init_db
+from src.runners import (
+    AlignerRunner,
+    ParserRunner,
+    TikaRunner,
+    VadRunner,
+    WerRunner,
+    init_db,
+)
 
 structlog.configure(
-    wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+    wrapper_class=structlog.make_filtering_bound_logger(logging.DEBUG),
 )
 
 
@@ -57,7 +64,26 @@ def apply_vad():
     runner.run()
 
 
-apply_vad()
+def run_wer():
+    Base.metadata.create_all(bind=engine)
+    s_maker = sessionmaker(bind=engine)
+    with s_maker() as session:
+        runner = WerRunner(session)
+        runner.run()
+
+
+def run_alignment():
+    Base.metadata.create_all(bind=engine)
+    s_maker = sessionmaker(bind=engine)
+    with s_maker() as session:
+        runner = AlignerRunner(session=session)
+        runner.run_align_whisper()
+
+
+run_alignment()
+# run_wer()
+
+# apply_vad()
 # parse_to_json()
 
 # asyncio.run(tika())

@@ -1,5 +1,7 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 from pydantic_settings import BaseSettings
+
+FILENAME = "/mnt/bigben/nrsr_recordings"
 
 
 class DataMetaData(BaseModel):
@@ -19,3 +21,14 @@ class DatabaseSettings(BaseSettings):
         env_file = ".env"
         env_prefix = "DB_"
         case_sensitive = False
+
+
+class RecordingToProcess(BaseModel):
+    id: int
+    filename: str
+    transcript: dict | None = None
+
+    @computed_field
+    @property
+    def file_path(self) -> str:
+        return f"{FILENAME}/{self.filename}"
