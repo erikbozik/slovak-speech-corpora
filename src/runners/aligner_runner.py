@@ -1,15 +1,16 @@
-from typing import Generator
+from typing import Any, Generator
 
 import structlog
-from sqlalchemy import String, cast, func, literal, select
+from sqlalchemy import String, cast, desc, func, literal, select
 from sqlalchemy.orm import Session, aliased
 
 from src.database import NRSRRecording, NRSRTranscript
 
 from ..processors import ForceAligner
-from ..schemas import RecordingToProcess
 
 logger = structlog.get_logger()
+
+FILENAME = "/mnt/bigben/nrsr_recordings"
 
 
 class AlignerRunner:
@@ -19,48 +20,96 @@ class AlignerRunner:
         self.session = session
         self.aligner = ForceAligner()
 
-    def fetch_db(self) -> Generator[RecordingToProcess, None, None]:
+    def fetch_db(self) -> Generator[Any, None, None]:
         nr = aliased(NRSRRecording)
         tran = aliased(NRSRTranscript)
 
+        filename = (
+            cast(tran.meeting_num, String)
+            + literal("_")
+            + func.to_char(
+                tran.snapshot, "DD-MM-YYYY"
+            )  # ← single quotes for the format mask
+            + literal(".mp3")
+        ).label("filename")
+
         result = self.session.execute(
-            select(
-                nr.id,
-                (
-                    cast(nr.meeting_num, String)
-                    + literal("_")
-                    + func.to_char(nr.snapshot, "DD-MM-YYYY")
-                    + literal(".mp3")
-                ).label("filename"),
-                tran.whisper_transcript,
-            )
-            .select_from(nr)
-            .join(
-                tran,
+            select(tran, filename)  # full transcript + filename
+            .join(  # INNER JOIN ⇒ intersection
+                nr,
                 (tran.meeting_num == nr.meeting_num) & (tran.snapshot == nr.snapshot),
-                isouter=True,
             )
-            .where(tran.json_parsed.isnot(None) & tran.whisper_transcript.isnot(None))
-            .order_by(func.random())
+            .where(tran.json_parsed.isnot(None))
+            .order_by(desc(tran.aligned_segments), tran.whisper_transcript)
         )
 
         for i in result:
-            yield RecordingToProcess(
-                id=i.id, filename=i.filename, transcript=i.whisper_transcript
-            )
+            yield i
 
-    def fetch_transcript(self, recording_id: int) -> NRSRTranscript:
-        return self.session.get(NRSRTranscript, recording_id)
+    def fetch_transcript(self, transcript_id: int) -> NRSRTranscript:
+        return self.session.get(NRSRTranscript, transcript_id)
 
-    def run_align_whisper(self):
-        for i in self.fetch_db():
-            audio = self.aligner.load_audio(file_path=i.file_path)
-            logger.debug("Aligning", file_path=i.file_path)
-            aligned = self.aligner.transform_record(
-                audio,
-                i.transcript["segments"],  # type: ignore
-            )
-            logger.debug("Aligned", file_path=i.file_path)
-            transcript = self.fetch_transcript(i.id)
-            transcript.word_timestamps_whisper = aligned  # type: ignore
-            self.session.commit()
+    @staticmethod
+    def plus_n(iterable: list, index: int):
+        return range(
+            min(len(iterable), index + 1),
+            min(len(iterable), index + 4),
+        )
+
+    @staticmethod
+    def minus_n(index: int):
+        return range(max(0, index - 3), index)
+
+    def run(self):
+        for i, filename in self.fetch_db():
+            file_path = f"{FILENAME}/{filename}"
+            audio = None
+            if not i.whisper_transcript:
+                audio = self.aligner.load_audio(file_path=file_path)
+                trans = self.aligner.transcribe(audio)
+                transcript = self.fetch_transcript(i.id)
+                transcript.whisper_transcript = trans  # type: ignore
+                self.session.commit()
+
+            if not i.word_timestamps_whisper:
+                if audio is None:
+                    audio = self.aligner.load_audio(file_path=file_path)
+                logger.debug("Aligning", file_path=file_path)
+                aligned = self.aligner.force_align(
+                    audio,
+                    i.whisper_transcript["segments"],  # type: ignore
+                )
+                logger.debug("Aligned", file_path=file_path)
+                transcript = self.fetch_transcript(i.id)
+                transcript.word_timestamps_whisper = aligned  # type: ignore
+                self.session.commit()
+            if not i.aligned_segments:
+                gt = i.json_parsed
+                wt = i.word_timestamps_whisper["segments"]
+                aligned = self.aligner.align(
+                    gt,
+                    wt,
+                )
+                segments = self.aligner.segment(
+                    aligned=aligned,
+                    gt_words=[
+                        token for entry in gt for token in entry["transcript"].split()
+                    ],
+                )
+                transcript = self.fetch_transcript(i.id)
+                transcript.aligned_segments = segments  # type: ignore
+                self.session.commit()
+
+            # if not i.word_timestamps:
+            #     if audio is None:
+            #         audio = self.aligner.load_audio(file_path=file_path)
+            #     logger.debug("Aligning", file_path=file_path)
+            #     final_aligned = self.aligner.force_align(
+            #         audio,
+            #         i.aligned_segments,  # type: ignore
+            #     )
+            #     logger.debug("Aligned", file_path=file_path)
+            #     transcript = self.fetch_transcript(i.id)
+            #     transcript.word_timestamps = final_aligned  # type: ignore
+            #     self.session.commit()
+            logger.debug("Aligned segments", file_path=file_path)
