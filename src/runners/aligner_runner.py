@@ -34,12 +34,15 @@ class AlignerRunner:
         ).label("filename")
 
         result = self.session.execute(
-            select(tran, filename)  # full transcript + filename
+            select(tran, filename, nr.vad_segments)  # full transcript + filename
             .join(  # INNER JOIN ⇒ intersection
                 nr,
                 (tran.meeting_num == nr.meeting_num) & (tran.snapshot == nr.snapshot),
             )
+            # .where(tran.id == 1033)
+            # .where(tran.json_parsed.isnot(None))
             .where(tran.json_parsed.isnot(None))
+            # .where(tran.json_parsed.isnot(None) & tran.whisper_transcript.isnot(None))
             .order_by(desc(tran.aligned_segments), tran.whisper_transcript)
         )
 
@@ -61,9 +64,17 @@ class AlignerRunner:
         return range(max(0, index - 3), index)
 
     def run(self):
-        for i, filename in self.fetch_db():
+        for i, filename, vad_segments in self.fetch_db():
             file_path = f"{FILENAME}/{filename}"
             audio = None
+            # audio = self.aligner.load_audio(file_path=file_path)
+
+            # result = self.aligner.force_align_entire(
+            #     audio=audio, segments=i.json_parsed, vad=vad_segments
+            # )
+            # i.aligned_segments = result
+            # self.session.commit()
+
             if not i.whisper_transcript:
                 audio = self.aligner.load_audio(file_path=file_path)
                 trans = self.aligner.transcribe(audio)
@@ -84,6 +95,7 @@ class AlignerRunner:
                 transcript.word_timestamps_whisper = aligned  # type: ignore
                 self.session.commit()
             if not i.aligned_segments:
+                logger.info(f"{i.id}, {i.meeting_num}, {i.snapshot}")
                 gt = i.json_parsed
                 wt = i.word_timestamps_whisper["segments"]
                 aligned = self.aligner.align(
@@ -112,4 +124,4 @@ class AlignerRunner:
             #     transcript = self.fetch_transcript(i.id)
             #     transcript.word_timestamps = final_aligned  # type: ignore
             #     self.session.commit()
-            logger.debug("Aligned segments", file_path=file_path)
+            # logger.debug("Aligned segments", file_path=file_path)

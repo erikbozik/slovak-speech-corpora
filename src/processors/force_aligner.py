@@ -9,7 +9,7 @@ import numpy as np
 import structlog
 import torch
 import whisperx
-from pydantic import BaseModel, TypeAdapter, ValidationError
+from pydantic import BaseModel, Field, TypeAdapter, ValidationError, computed_field
 from rapidfuzz.distance import Levenshtein
 from tqdm import tqdm
 from whisperx import load_audio
@@ -19,7 +19,11 @@ logger = structlog.get_logger()
 
 class GTSegment(BaseModel):
     speaker: str
-    transcript: str
+    transcript: str = Field(exclude=True)
+
+    @computed_field
+    def text(self) -> str:
+        return self.transcript
 
 
 class WordSegment(BaseModel):
@@ -31,16 +35,30 @@ class WordSegment(BaseModel):
     anchor_index: int | None = None
 
 
+class SpeakerSegment(BaseModel):
+    speaker: str
+    transcript: str
+    start: float
+    end: float
+
+
+class VADSegment(BaseModel):
+    start: float
+    end: float
+
+
 class ForceAligner:
     metadata: Any
 
     gt_adapter: TypeAdapter[list[GTSegment]]
     wt_adapter: TypeAdapter[list[WordSegment]]
+    vad_adapter: TypeAdapter[list[VADSegment]]
     only_dots_and_spaces: Pattern = re.compile(r"[. ]*")
 
     def __init__(self) -> None:
         self.gt_adapter = TypeAdapter(list[GTSegment])
         self.wt_adapter = TypeAdapter(list[WordSegment])
+        self.vad_adapter = TypeAdapter(list[VADSegment])
 
     def load_audio(self, file_path: str):
         logger.debug("Loading audio", file_path=file_path)
@@ -56,6 +74,96 @@ class ForceAligner:
         gc.collect()
         torch.cuda.empty_cache()
         del model
+        return result
+
+    def force_align_entire(
+        self, audio: np.ndarray, segments: list[dict], vad: list[dict]
+    ):
+        diarize_model = whisperx.DiarizationPipeline(device="cuda")
+        start = vad[0]["start"]
+        sample_rate = 16000
+        chunk_duration = 600
+        extend_count = 0
+        audio_len_sec = len(audio) / sample_rate
+        final_segs: list[SpeakerSegment] = []
+        while start < audio_len_sec:
+            logger.info(start / audio_len_sec)
+            end = min(audio_len_sec, start + chunk_duration + 300 * extend_count)
+            chunk = audio[int(start * sample_rate) : int(end * sample_rate)]
+            if len(chunk) == 0:
+                break  # nothing to process
+
+            df = diarize_model(chunk)
+            df = df.loc[df["end"] - df["start"] > 0.7]
+            df["speaker_change"] = df["speaker"] != df["speaker"].shift(1)
+            df["group_id"] = df["speaker_change"].cumsum()
+            last_speaker = df.iloc[-1]["speaker"]
+            collapsed = (
+                df.groupby("group_id")
+                .filter(lambda g: g["speaker"].iloc[0] != last_speaker)
+                .groupby("group_id")
+                .agg({"speaker": "first", "start": "min", "end": "max"})
+                .reset_index(drop=True)
+            )
+            segs: list[SpeakerSegment] = [
+                SpeakerSegment(
+                    start=row["start"] + start,
+                    end=row["end"] + start,
+                    transcript=seg["transcript"],
+                    speaker=seg["speaker"],
+                ).model_dump()
+                for seg, row in zip(segments, collapsed.to_dict(orient="records"))
+            ]
+            if not segs:
+                extend_count += 1
+                logger.warning(f"Retrying to extend segment: {extend_count}")
+                continue
+            extend_count = 0
+            segments = segments[len(collapsed) - 1 :]
+            # pprint(TypeAdapter(list[SpeakerSegment]).dump_python(segs))
+            start = end
+            final_segs.extend(segs)
+            # start = segs[-1].end
+
+        return final_segs
+        gt = self.gt_adapter.validate_python(segments)
+        model_a, metadata = whisperx.load_align_model(language_code="sk", device="cuda")
+        result = []
+        for i in gt:
+            segment_words = i.transcript.split()
+            segment = i.model_dump() | {"start": start, "end": start + 300}
+
+            segment_result = whisperx.align(
+                [segment],  # type: ignore
+                model_a,
+                metadata,
+                audio,
+                "cuda",
+                return_char_alignments=False,
+            )
+            print("first segment")
+            # print(segment_result["word_segments"])
+            result.append(segment_result["word_segments"])
+            # start = segment_result["word_segments"][-1]["end"]
+            end = segment_result["word_segments"][-1]["end"]
+            end_word = segment_result["word_segments"][-1]["word"]
+            while True:
+                # while end_word != segment_words[-1]:
+                print(end)
+                segment = i.model_dump() | {"start": start, "end": end}
+                segment_result = whisperx.align(
+                    [segment],  # type: ignore
+                    model_a,
+                    metadata,
+                    audio,
+                    "cuda",
+                    return_char_alignments=False,
+                )
+                end = segment_result["word_segments"][-1]["end"]
+                # print(segment_result["word_segments"])
+                # result.append(segment_result["word_segments"])
+                # start = segment_result["word_segments"][-1]["end"]
+                # end_word = segment_result["word_segments"][-1]["word"]
         return result
 
     def force_align(self, audio: np.ndarray, segments: dict):
@@ -91,15 +199,15 @@ class ForceAligner:
         return result
 
     @staticmethod
-    def plus_n(iterable: list, index: int):
+    def plus_n(iterable: list, index: int, n: int = 4):
         return range(
             min(len(iterable), index + 1),
-            min(len(iterable), index + 5),
+            min(len(iterable), index + n + 1),
         )
 
     @staticmethod
-    def minus_n(index: int):
-        return range(max(0, index - 4), index)
+    def minus_n(index: int, n: int = 4):
+        return range(max(0, index - n), index)
 
     def tokenize_wt(self, wt: list[dict]) -> list[WordSegment]:
         """Return *text* split into words **and** punctuation tokens."""
@@ -109,12 +217,21 @@ class ForceAligner:
             try:
                 model = WordSegment.model_validate(seg)
                 model.word = model.word.strip(string.punctuation).strip()
-                if self.only_dots_and_spaces.match(model.word):
+                if self.only_dots_and_spaces.fullmatch(model.word):
+                    continue
+                if model.word == "Ahojte":
+                    # logger.warning("Ahojte present in transcript")
+                    continue
+                if model.word == "Ďakujem":
+                    # logger.warning("Ďakujem present in transcript")
                     continue
                 result.append(model)
             except ValidationError:
                 continue
         return result
+
+    def align_another_round(self, partial: list[dict], word_whisper: list[dict]):
+        pass
 
     def align(
         self, gt_db: list[dict], wt_tokens_db: list[dict], max_jump: int = 50
@@ -130,6 +247,7 @@ class ForceAligner:
         gt_tokens = " ".join(item.transcript for item in gt)
         gt_tokens = list(map(lambda x: x.strip(string.punctuation), gt_tokens.split()))
         gt_dict = defaultdict(list)
+        n = 4
         for idx, val in enumerate(gt_tokens):
             gt_dict[val.lower()].append(idx)
         gt_keys = list(gt_dict.keys())
@@ -139,7 +257,7 @@ class ForceAligner:
 
         for i in tqdm(range(len(wt_tokens)), total=len(wt_tokens)):
             wt_word = wt_tokens[i].word.lower()
-            if len(wt_word) <= 3:
+            if len(wt_word) <= 2:
                 continue
 
             # 2) collect all GT indices whose key is within distance ≤1 of wt_word
@@ -157,20 +275,17 @@ class ForceAligner:
             # try each candidate in ascending order
             for ci in sorted(candidates):
                 # build your forward/back context sets
-                gt_forw = {gt_tokens[j].lower() for j in self.plus_n(gt_tokens, ci)}
-                gt_back = {gt_tokens[j].lower() for j in self.minus_n(ci)}
-                wt_forw = {wt_tokens[j].word.lower() for j in self.plus_n(wt_tokens, i)}
-                wt_back = {wt_tokens[j].word.lower() for j in self.minus_n(i)}
+                gt_forw = {
+                    gt_tokens[j].lower() for j in self.plus_n(gt_tokens, ci, n=n)
+                }
+                gt_back = {gt_tokens[j].lower() for j in self.minus_n(ci, n=n)}
+                wt_forw = {
+                    wt_tokens[j].word.lower() for j in self.plus_n(wt_tokens, i, n=n)
+                }
+                wt_back = {wt_tokens[j].word.lower() for j in self.minus_n(i, n=n)}
 
-                # adjust threshold if context‐windows differ
-                threshold = 1
-                if (
-                    abs(len(gt_forw) - len(wt_forw)) > 1
-                    or abs(len(gt_back) - len(wt_back)) > 1
-                ):
-                    threshold = 2
+                threshold = 2
 
-                # fuzzy context score (exact intersection here; swap in levenshtein if desired)
                 score = len(gt_forw & wt_forw) + len(gt_back & wt_back)
 
                 if score > threshold:
@@ -233,8 +348,13 @@ class ForceAligner:
                         "text": " ".join(
                             gt_words[seg_start_idx : word.anchor_index]  # ← key line
                         ),
+                        "duration": word.start - seg_start_time,
                     }
                 )
+                if word.start - seg_start_time > 50:
+                    pass
+                    logger.warning(f"Segment too long: {word.start - seg_start_time}ms")
+
                 # ---- open a new one that STARTS WITH <word> --------------
                 seg_start_idx = word.anchor_index
                 seg_start_time = word.start
@@ -255,5 +375,8 @@ class ForceAligner:
                     "duration": word.start - seg_start_time,
                 }
             )
+            if seg_end_time - seg_start_time > 50:
+                pass
+                logger.warning(f"Segment too long: {word.start - seg_start_time}ms")
 
         return segments
