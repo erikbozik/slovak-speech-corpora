@@ -2,7 +2,7 @@ import os
 import sys
 from functools import wraps
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "whisperX")))
+# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "whisperX")))
 import logging
 
 import structlog
@@ -77,7 +77,7 @@ def run_alignment():
     s_maker = sessionmaker(bind=engine)
     with s_maker() as session:
         runner = AlignerRunner(session=session)
-        runner.run_align_whisper()
+        runner.run()
 
 
 run_alignment()
